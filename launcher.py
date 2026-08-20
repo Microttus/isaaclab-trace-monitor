@@ -1,6 +1,6 @@
-"""PyInstaller launcher for the macOS application bundle."""
+"""PyInstaller launcher for native desktop bundles."""
 
-from isaaclab_trace_monitor.app import main
+from isaaclab_trace_monitor.cli import main
 
 
 if __name__ == "__main__":

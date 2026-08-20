@@ -10,11 +10,24 @@ source .venv-dev/bin/activate
 python -m pip install -e '.[dev]'
 ```
 
+On Ubuntu/Debian, install the Qt runtime and Xvfb first:
+
+```bash
+INSTALL_XVFB=1 ./install_linux_dependencies.sh
+```
+
 Run the quality checks before submitting a pull request:
 
 ```bash
 ruff check .
 pytest
+```
+
+Run a Linux GUI smoke test with:
+
+```bash
+QT_QPA_PLATFORM=xcb xvfb-run -a \
+  isaaclab-trace-monitor ./example_object_traces --smoke-test
 ```
 
 ## Scope
@@ -29,6 +42,10 @@ Changes to the trace format must update:
 - the reference logger;
 - the data loader; and
 - relevant tests and example files.
+
+Platform-specific changes should preserve both the macOS and Linux source
+runners. Native application bundles must include the project notices and the
+third-party license material collected by the build scripts.
 
 ## Pull requests
 

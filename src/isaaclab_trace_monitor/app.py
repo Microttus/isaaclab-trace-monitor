@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import csv
 import math
 import os
@@ -13,8 +12,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
-from matplotlib.figure import Figure
 from PySide6.QtCore import (
     QProcess,
     QProcessEnvironment,
@@ -47,6 +44,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from matplotlib.backends.backend_qtagg import (
+    FigureCanvasQTAgg,
+    NavigationToolbar2QT,
+)
+from matplotlib.figure import Figure
 
 from isaaclab_trace_monitor import __version__
 from isaaclab_trace_monitor.data import (
@@ -850,7 +853,7 @@ class MonitorWindow(QMainWindow):
         rsync = shutil.which("rsync", path=process_path)
         if not rsync:
             self._show_sync_error(
-                "rsync was not found. Install it on the Mac and configure Coder SSH first."
+                "rsync was not found. Install rsync and configure SSH/Coder access first."
             )
             return
         self.sync_output = ""
@@ -1315,11 +1318,13 @@ class MonitorWindow(QMainWindow):
 
 
 def _augmented_process_path() -> str:
-    """Returns PATH with common macOS CLI locations for SSH ProxyCommand tools."""
+    """Return PATH with common desktop CLI locations for SSH proxy tools."""
     candidates = [
         "/opt/homebrew/bin",
         "/usr/local/bin",
         "/opt/local/bin",
+        "/usr/bin",
+        "/bin",
         str(Path.home() / ".local" / "bin"),
         str(Path.home() / "bin"),
     ]
@@ -1361,52 +1366,47 @@ def _format_float(value: Any, width: int = 0) -> str:
     return f"{text:>{width}}" if width else text
 
 
-def build_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Offline and live monitor for Isaac Lab object trajectory logs."
-    )
-    parser.add_argument(
-        "source",
-        nargs="?",
-        default="",
-        help="Local object_traces directory or host:/absolute/object_traces path.",
-    )
-    parser.add_argument(
-        "--refresh",
-        type=float,
-        default=2.0,
-        help="Automatic refresh period in seconds (default: 2.0).",
-    )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {__version__}",
-    )
-    return parser
-
-
 def _application_icon_path() -> Path | None:
     """Returns the bundled application icon when it is available."""
     path = Path(__file__).resolve().parent / "assets" / "app_icon.png"
     return path if path.is_file() else None
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Application entry point."""
-    arguments = build_argument_parser().parse_args(argv)
+def run_application(
+    source: str = "",
+    refresh_period: float = 2.0,
+    smoke_test: bool = False,
+) -> int:
+    """Create and run the Qt desktop application."""
     application = QApplication(sys.argv[:1])
     application.setApplicationName("IsaacLab Trace Monitor")
     application.setApplicationDisplayName("IsaacLab Trace Monitor")
     application.setApplicationVersion(__version__)
     application.setOrganizationName("IsaacLabTraceMonitor")
+    if hasattr(application, "setDesktopFileName"):
+        application.setDesktopFileName("isaaclab-trace-monitor")
 
     icon_path = _application_icon_path()
     icon = QIcon(str(icon_path)) if icon_path is not None else QIcon()
     if not icon.isNull():
         application.setWindowIcon(icon)
 
-    window = MonitorWindow(arguments.source, arguments.refresh)
+    window = MonitorWindow(source, refresh_period)
     if not icon.isNull():
         window.setWindowIcon(icon)
     window.show()
+
+    if smoke_test:
+        QTimer.singleShot(750, application.quit)
+
     return application.exec()
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Compatibility wrapper for callers that imported ``app.main``."""
+    from isaaclab_trace_monitor.cli import main as cli_main
+
+    return cli_main(argv)
+
+
+__all__ = ["MonitorWindow", "run_application", "main"]

@@ -10,16 +10,16 @@ Runtime dependencies include:
 - Matplotlib; and
 - NumPy.
 
-The macOS build process additionally uses:
+Native application build processes additionally use:
 
 - PyInstaller; and
 - Pillow.
 
 The source repository does not replace or modify the licenses of these
-projects. The macOS build script runs `tools/collect_licenses.py` and copies the
-license and notice files available from the installed Python distributions into
-`IsaacLab Trace Monitor.app/Contents/Resources/licenses/`.
+projects. The macOS and Linux build scripts run `tools/collect_licenses.py` and
+copy license and notice files available from the installed Python
+distributions into the generated application artifacts.
 
 Review the collected files before publishing a binary release. A missing file
-in that directory does not remove the obligation to comply with the relevant
-third-party license.
+in the generated license directory does not remove the obligation to comply
+with the relevant third-party license.

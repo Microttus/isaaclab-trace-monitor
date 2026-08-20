@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.3.0 - 2026-08-20
+
+- Added first-class Linux source and portable-bundle support.
+- Added Ubuntu/Debian Qt/XCB/OpenGL dependency installation guidance and helper.
+- Added a per-user Linux installer, desktop entry, command launcher, and icon.
+- Added a Linux PyInstaller build script and GitHub Actions bundle workflow.
+- Split the lightweight CLI from the Qt application so `--version` does not
+  import PySide6 or Matplotlib.
+- Added deterministic `--diagnose` output for Qt, Matplotlib, SSH, and rsync.
+- Forced Matplotlib to use PySide6 and imported the Qt binding before QtAgg.
+- Replaced the full PySide6 alias dependency with PySide6-Essentials to avoid
+  bundling unused Qt add-on modules.
+- Updated CI to verify PySide6 directly and launch the GUI under Xvfb on Ubuntu.
+- Added cross-platform cache, Coder, Linux build, and troubleshooting docs.
+- Made the source runner refresh its editable installation when packaging
+  metadata changes.
+
 All notable changes to this project are documented in this file.
 
 ## 1.2.0 - 2026-08-20

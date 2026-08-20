@@ -1,5 +1,6 @@
 .venv/
 .venv-build/
+.venv-build-linux/
 .venv-dev/
 .venv-test/
 .idea/

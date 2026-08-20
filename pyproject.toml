@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "isaaclab-trace-monitor"
-version = "1.2.0"
+version = "1.3.0"
 description = "Live and offline desktop monitor for Isaac Lab object trajectory logs"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.15"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 authors = [
@@ -23,6 +23,7 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: MacOS X",
+    "Environment :: X11 Applications :: Qt",
     "Intended Audience :: Science/Research",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
@@ -36,7 +37,7 @@ classifiers = [
 dependencies = [
     "matplotlib>=3.8",
     "numpy>=1.26",
-    "PySide6>=6.7",
+    "PySide6-Essentials>=6.8.2,<7",
 ]
 
 [project.optional-dependencies]
@@ -58,7 +59,7 @@ Changelog = "https://github.com/Microttus/isaaclab-trace-monitor/blob/main/CHANG
 "AI assistance disclosure" = "https://github.com/Microttus/isaaclab-trace-monitor/blob/main/AI_ASSISTANCE.md"
 
 [project.scripts]
-isaaclab-trace-monitor = "isaaclab_trace_monitor.app:main"
+isaaclab-trace-monitor = "isaaclab_trace_monitor.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

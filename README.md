@@ -13,9 +13,10 @@ Lab object-trajectory logs.
 > with or endorsed by NVIDIA or the Isaac Lab project.
 >
 > **Development disclosure:** substantial portions of the initial application,
-> logger, tests, build scripts, and documentation were created with assistance
-> from OpenAI's ChatGPT. The app has no OpenAI runtime dependency and does not
-> send trace data to OpenAI. See [AI_ASSISTANCE.md](AI_ASSISTANCE.md).
+> logger, tests, build scripts, Linux/macOS packaging, and documentation were
+> created with assistance from OpenAI's ChatGPT. The app has no OpenAI runtime
+> dependency and does not send trace data to OpenAI. See
+> [AI_ASSISTANCE.md](AI_ASSISTANCE.md).
 
 ## Features
 
@@ -27,35 +28,29 @@ Lab object-trajectory logs.
 - Reward, cumulative return, episode-return, and episode-length plots
 - Play, pause, seek, step, speed, loop, trail, and follow-newest controls
 - Restrictive synchronization that excludes retained episodes by default
-- Native macOS `.app`, `.dmg`, and portable `.zip` build support
-- Generic Isaac Lab/Stable-Baselines3 logging callback included under
+- Native macOS `.app`, `.dmg`, and `.zip` build support
+- Portable Linux bundle with per-user desktop integration and application icon
+- Generic Isaac Lab/Stable-Baselines3 logging callback under
   [`examples/isaaclab_logger`](examples/isaaclab_logger)
 
 ## Supported platforms
 
-- **macOS:** primary supported platform; source runner and native app builder
-- **Linux:** source installation is tested in CI
+- **macOS:** source runner and native application builder
+- **Linux:** source runner, CI testing, Xvfb GUI smoke testing, and portable
+  PyInstaller bundle; Ubuntu 22.04/24.04 are the reference distributions
 - **Windows:** not currently tested
 
-Isaac Sim and Isaac Lab are not required on the monitoring computer. They are
-only required on the training system that produces the logs.
+Python 3.10 through 3.14 is supported. Isaac Sim and Isaac Lab are not required
+on the monitoring computer. They are only required on the training system that
+produces the logs.
 
-## Install and run
+## Install and run from source
 
-Python 3.10 or newer is required.
+The repository runner creates a local virtual environment on first use and
+refreshes the editable installation whenever `pyproject.toml` changes:
 
 ```bash
 ./run_monitor.sh
-```
-
-The first run creates `.venv`, installs the project in editable mode, and starts
-the application. A normal installation is also supported:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install .
-isaaclab-trace-monitor
 ```
 
 Open the included synthetic trace:
@@ -64,12 +59,39 @@ Open the included synthetic trace:
 ./run_monitor.sh ./example_object_traces
 ```
 
+Check the Python, Qt, Matplotlib, SSH, and `rsync` runtime without opening the
+main window:
+
+```bash
+./run_monitor.sh --diagnose
+```
+
+A normal Python installation is also supported:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install .
+isaaclab-trace-monitor
+```
+
+### Ubuntu or Debian prerequisites
+
+Install the Qt/XCB/OpenGL runtime and live-monitoring tools once:
+
+```bash
+./install_linux_dependencies.sh
+```
+
+The helper uses `apt-get` and installs dependencies for PySide6, `python3-venv`,
+`rsync`, and OpenSSH. It does not install Isaac Sim or Isaac Lab.
+
 ## Source field
 
 The source field accepts a local trace root:
 
 ```text
-/Users/your-name/IsaacLogs/run_01/object_traces
+/home/your-name/IsaacLogs/run_01/object_traces
 ```
 
 or an SSH/`rsync` source:
@@ -86,7 +108,7 @@ shell metacharacters. This keeps public-facing `rsync` invocation predictable.
 
 ## Coder live monitoring
 
-Configure the Coder workspace as a normal SSH host on the Mac:
+Configure the Coder workspace as a normal SSH host on the monitoring computer:
 
 ```bash
 coder config-ssh --no-wildcard
@@ -115,10 +137,11 @@ live/
 ```
 
 Retained `episodes/` are excluded unless **Sync retained episodes** is enabled.
-The local remote-source cache is stored below:
+The remote-source cache is platform-specific:
 
 ```text
-~/Library/Caches/IsaacLabTraceMonitor/
+macOS: ~/Library/Caches/IsaacLabTraceMonitor/
+Linux: ${XDG_CACHE_HOME:-~/.cache}/isaaclab-trace-monitor/
 ```
 
 The application uses the existing SSH/Coder configuration and never stores a
@@ -157,6 +180,36 @@ When simulation timing metadata is unavailable, relative `wall_time_s` is used.
 The **Trail** value is a sample count; selecting **Full** shows the complete path
 up to the selected frame.
 
+## Build the Linux application
+
+Run on Linux:
+
+```bash
+./install_linux_dependencies.sh
+./build_linux_app.sh
+```
+
+The build creates a portable directory and compressed archive:
+
+```text
+dist/IsaacLab-Trace-Monitor-1.3.0-Linux-<architecture>/
+dist/IsaacLab-Trace-Monitor-1.3.0-Linux-<architecture>.tar.gz
+```
+
+Run it without installing:
+
+```bash
+./dist/IsaacLab-Trace-Monitor-1.3.0-Linux-*/isaaclab-trace-monitor
+```
+
+Or install a menu entry, command, and icon for the current Linux user:
+
+```bash
+./dist/IsaacLab-Trace-Monitor-1.3.0-Linux-*/install.sh
+```
+
+More detail: [docs/building-linux.md](docs/building-linux.md).
+
 ## Build the macOS application
 
 Run on macOS:
@@ -169,8 +222,8 @@ The finished products are written to `dist/`:
 
 ```text
 dist/IsaacLab Trace Monitor.app
-dist/IsaacLab-Trace-Monitor-1.2.0-macOS.dmg
-dist/IsaacLab-Trace-Monitor-1.2.0-macOS.zip
+dist/IsaacLab-Trace-Monitor-1.3.0-macOS.dmg
+dist/IsaacLab-Trace-Monitor-1.3.0-macOS.zip
 ```
 
 The script uses a temporary PyInstaller work directory, validates the finished
@@ -192,11 +245,22 @@ ruff check .
 pytest
 ```
 
+On Ubuntu/Debian CI or development machines:
+
+```bash
+INSTALL_XVFB=1 ./install_linux_dependencies.sh
+QT_QPA_PLATFORM=xcb xvfb-run -a \
+  isaaclab-trace-monitor ./example_object_traces --smoke-test
+```
+
+The CLI processes `--version` before importing Qt or Matplotlib. CI separately
+checks the actual PySide6 binding, the Matplotlib QtAgg backend, and a real Qt
+window under Xvfb.
+
 ## Prepare your GitHub repository
 
 This source archive contains a deliberate repository-owner placeholder because
-the GitHub account name is not known. Replace it with one command before the
-first commit:
+the GitHub account name is not known. Replace it before the first commit:
 
 ```bash
 python3 tools/configure_repository.py --github-owner YOUR_GITHUB_USERNAME
