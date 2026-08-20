@@ -46,7 +46,7 @@ dev = [
     "ruff>=0.12",
 ]
 build = [
-    "pyinstaller==6.21.0",
+    "pyinstaller==6.22.1",
     "pillow>=10",
 ]
 
