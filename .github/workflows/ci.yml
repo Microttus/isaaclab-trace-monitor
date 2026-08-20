@@ -17,8 +17,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.10", "3.13"]
     env:
+      QT_API: pyside6
       QT_QPA_PLATFORM: offscreen
-      MPLBACKEND: Agg
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -29,10 +29,37 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
+      - name: Install Linux Qt runtime
+        if: runner.os == 'Linux'
+        env:
+          INSTALL_XVFB: "1"
+        run: ./install_linux_dependencies.sh
+
       - name: Install project
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip check
+
+      - name: Verify metadata-only CLI
+        run: |
+          isaaclab-trace-monitor --version
+          python -m isaaclab_trace_monitor --version
+
+      - name: Verify Qt binding imports
+        run: |
+          isaaclab-trace-monitor --diagnose
+          python - <<'PY'
+          import PySide6
+          from PySide6.QtCore import qVersion
+          from PySide6.QtWidgets import QApplication
+          from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+
+          print(f"PySide6 {PySide6.__version__}")
+          print(f"Qt {qVersion()}")
+          print(f"QApplication: {QApplication}")
+          print(f"FigureCanvasQTAgg: {FigureCanvasQTAgg}")
+          PY
 
       - name: Lint
         run: ruff check .
@@ -40,10 +67,25 @@ jobs:
       - name: Test
         run: pytest
 
-      - name: Verify command-line entry point
-        run: isaaclab-trace-monitor --version
+      - name: Linux GUI smoke test under Xvfb
+        if: runner.os == 'Linux'
+        env:
+          QT_QPA_PLATFORM: xcb
+        run: >-
+          xvfb-run -a
+          isaaclab-trace-monitor
+          ./example_object_traces
+          --smoke-test
+
+      - name: macOS GUI smoke test
+        if: runner.os == 'macOS'
+        run: >-
+          isaaclab-trace-monitor
+          ./example_object_traces
+          --smoke-test
 
   package:
+    name: Build Python distributions
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

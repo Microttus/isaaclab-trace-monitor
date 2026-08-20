@@ -48,6 +48,12 @@ ruff check .
 pytest
 ```
 
+On Ubuntu or Debian, install the Qt runtime first:
+
+```bash
+INSTALL_XVFB=1 ./install_linux_dependencies.sh
+```
+
 ## 3. Initialize Git
 
 ```bash
@@ -85,6 +91,7 @@ trajectory-visualization
 pyside6
 matplotlib
 macos
+linux
 ```
 
 Enable:
@@ -99,8 +106,8 @@ Enable:
 After CI passes:
 
 ```bash
-git tag -a v1.2.0 -m "IsaacLab Trace Monitor 1.2.0"
-git push origin v1.2.0
+git tag -a v1.3.0 -m "IsaacLab Trace Monitor 1.3.0"
+git push origin v1.3.0
 ```
 
 Build macOS artifacts on a Mac:
@@ -109,15 +116,26 @@ Build macOS artifacts on a Mac:
 ./build_macos_app.sh
 ```
 
-Create a GitHub release:
+Build the portable Linux archive on Linux, or download the artifact produced by
+the `Linux bundle` GitHub Actions workflow:
 
 ```bash
-gh release create v1.2.0 \
-  dist/IsaacLab-Trace-Monitor-1.2.0-macOS.dmg \
-  dist/IsaacLab-Trace-Monitor-1.2.0-macOS.zip \
-  --title "IsaacLab Trace Monitor 1.2.0" \
+./install_linux_dependencies.sh
+./build_linux_app.sh
+```
+
+Create a GitHub release after collecting both platform artifacts:
+
+```bash
+gh release create v1.3.0 \
+  dist/IsaacLab-Trace-Monitor-1.3.0-macOS.dmg \
+  dist/IsaacLab-Trace-Monitor-1.3.0-macOS.zip \
+  dist/IsaacLab-Trace-Monitor-1.3.0-Linux-*.tar.gz \
+  dist/IsaacLab-Trace-Monitor-1.3.0-Linux-*.tar.gz.sha256 \
+  --title "IsaacLab Trace Monitor 1.3.0" \
   --generate-notes
 ```
 
 Until Developer ID signing and notarization are configured, describe the macOS
-bundle as ad-hoc signed and recommend source installation for external users.
+bundle as ad-hoc signed. Describe Linux archives by their architecture and the
+oldest distribution on which they were built and tested.

@@ -6,12 +6,20 @@ copy.
 
 ## Prerequisites
 
-On the Mac:
+On the macOS or Linux monitoring computer:
 
-- Python 3.10+ for source execution, or the built `.app`
+- Python 3.10-3.14 for source execution, or a platform bundle
 - `rsync`
+- OpenSSH
 - the Coder CLI when the SSH configuration uses it as a proxy command
 - non-interactive SSH authentication
+
+On Ubuntu/Debian, the repository helper installs the required desktop and
+network tools:
+
+```bash
+./install_linux_dependencies.sh
+```
 
 Configure Coder SSH:
 
@@ -48,6 +56,13 @@ The cache is disposable. Removing it does not alter server files. `rsync`
 receives `--delete`, so local cache files that no longer exist in the selected
 remote subtree are removed.
 
+Default cache roots:
+
+```text
+macOS: ~/Library/Caches/IsaacLabTraceMonitor/
+Linux: ${XDG_CACHE_HOME:-~/.cache}/isaaclab-trace-monitor/
+```
+
 ## Troubleshooting
 
 Check the host alias:
@@ -63,7 +78,15 @@ ssh coder.<workspace> \
   'ls /absolute/path/to/object_traces/live/status.json'
 ```
 
-Test the same bounded transfer manually:
+Test the same bounded transfer manually on Linux:
+
+```bash
+rsync -az --delete --exclude episodes/ -- \
+  coder.<workspace>:/absolute/path/to/object_traces/ \
+  "${XDG_CACHE_HOME:-$HOME/.cache}/isaaclab-trace-monitor/manual-test/"
+```
+
+On macOS, use:
 
 ```bash
 rsync -az --delete --exclude episodes/ -- \
@@ -71,7 +94,13 @@ rsync -az --delete --exclude episodes/ -- \
   "$HOME/Library/Caches/IsaacLabTraceMonitor/manual-test/"
 ```
 
-When the `.app` can open local files but cannot synchronize, verify that the
-Coder CLI is installed in `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`,
-or `~/bin`. Finder-launched applications receive a restricted environment, so
-the monitor explicitly adds these common locations to the child-process PATH.
+Run the application diagnostics:
+
+```bash
+isaaclab-trace-monitor --diagnose
+```
+
+When a Finder-launched macOS application can open local files but cannot
+synchronize, verify that the Coder CLI is installed in `/opt/homebrew/bin`,
+`/usr/local/bin`, `~/.local/bin`, or `~/bin`. The monitor adds these locations,
+plus normal Linux system paths, to the child-process environment.

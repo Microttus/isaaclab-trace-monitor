@@ -10,7 +10,8 @@ ChatGPT was used to help:
 - implement the local and SSH/`rsync` source handling;
 - create the Isaac Lab/Stable-Baselines3 logging callback;
 - draft tests, build scripts, packaging metadata, and documentation;
-- diagnose macOS/PyInstaller packaging failures; and
+- diagnose macOS/PyInstaller packaging failures;
+- prepare Linux runtime, CI, desktop integration, and packaging support; and
 - produce and integrate the application icon.
 
 Martin Økter supplied the application requirements, domain context, and

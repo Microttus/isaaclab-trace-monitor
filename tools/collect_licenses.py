@@ -9,9 +9,7 @@ from importlib import metadata
 from pathlib import Path
 
 DISTRIBUTIONS = (
-    "PySide6",
     "PySide6-Essentials",
-    "PySide6-Addons",
     "shiboken6",
     "matplotlib",
     "numpy",

@@ -4,11 +4,25 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="${SCRIPT_DIR}/.venv"
+PYPROJECT="${SCRIPT_DIR}/pyproject.toml"
+INSTALL_MARKER="${VENV_DIR}/.isaaclab-trace-monitor-pyproject.toml"
+PYTHON="${VENV_DIR}/bin/python"
+ENTRY_POINT="${VENV_DIR}/bin/isaaclab-trace-monitor"
 
-if [[ ! -x "${VENV_DIR}/bin/isaaclab-trace-monitor" ]]; then
+new_environment=false
+if [[ ! -x "${PYTHON}" ]]; then
+  rm -rf "${VENV_DIR}"
   python3 -m venv "${VENV_DIR}"
-  "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-  "${VENV_DIR}/bin/python" -m pip install -e "${SCRIPT_DIR}"
+  new_environment=true
 fi
 
-exec "${VENV_DIR}/bin/isaaclab-trace-monitor" "$@"
+if [[ "${new_environment}" == "true" ]]; then
+  "${PYTHON}" -m pip install --upgrade pip
+fi
+
+if [[ ! -x "${ENTRY_POINT}" ]] || ! cmp -s "${PYPROJECT}" "${INSTALL_MARKER}"; then
+  "${PYTHON}" -m pip install -e "${SCRIPT_DIR}"
+  cp "${PYPROJECT}" "${INSTALL_MARKER}"
+fi
+
+exec "${ENTRY_POINT}" "$@"

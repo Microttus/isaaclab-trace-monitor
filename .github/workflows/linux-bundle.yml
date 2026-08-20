@@ -1,0 +1,52 @@
+name: Linux bundle
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build portable Linux bundle
+    runs-on: ubuntu-22.04
+    env:
+      QT_API: pyside6
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Linux Qt runtime
+        env:
+          INSTALL_XVFB: "1"
+        run: ./install_linux_dependencies.sh
+
+      - name: Build bundle
+        run: ./build_linux_app.sh
+
+      - name: Smoke-test frozen application
+        env:
+          QT_QPA_PLATFORM: xcb
+        run: |
+          bundle="$(find dist -maxdepth 1 -type d -name 'IsaacLab-Trace-Monitor-*-Linux-*' -print -quit)"
+          test -n "${bundle}"
+          xvfb-run -a "${bundle}/isaaclab-trace-monitor" \
+            ./example_object_traces --smoke-test
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: isaaclab-trace-monitor-linux
+          path: |
+            dist/IsaacLab-Trace-Monitor-*-Linux-*.tar.gz
+            dist/IsaacLab-Trace-Monitor-*-Linux-*.tar.gz.sha256
+          if-no-files-found: error
