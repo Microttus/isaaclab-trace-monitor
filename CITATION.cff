@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software in research, cite it using this metadata."
+title: "IsaacLab Trace Monitor"
+type: software
+authors:
+  - family-names: "Økter"
+    given-names: "Martin"
+version: "1.2.0"
+license: "BSD-3-Clause"
+repository-code: "https://github.com/Microttus/isaaclab-trace-monitor"
+abstract: >-
+  A desktop application for live monitoring and offline playback of bounded
+  Isaac Lab object trajectory logs.
+keywords:
+  - Isaac Lab
+  - robotics
+  - reinforcement learning
+  - trajectory visualization

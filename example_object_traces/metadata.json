@@ -1,0 +1,85 @@
+{
+  "format_version": 2,
+  "created_utc": "2026-07-13T08:48:18+00:00",
+  "objects": [
+    {
+      "name": "pin",
+      "prefix": "pin",
+      "item_index": 0
+    },
+    {
+      "name": "pipe",
+      "prefix": "pipe",
+      "item_index": 0
+    },
+    {
+      "name": "center",
+      "prefix": "center",
+      "item_index": 0
+    },
+    {
+      "name": "ee_frame",
+      "prefix": "ee_frame",
+      "item_index": 0
+    }
+  ],
+  "env_ids": [
+    0
+  ],
+  "sample_interval_callback_calls": 5,
+  "relative_to_env_origin": true,
+  "coordinate_frame": "world axes with environment-origin translation removed",
+  "position_units": "m",
+  "quaternion_order": "wxyz",
+  "simulation_step_dt_s": 0.02,
+  "include_actions": false,
+  "action_dimension": 0,
+  "keep_last_episodes_per_env": 20,
+  "max_samples_per_episode": 2000,
+  "live_update_interval_s": 2.0,
+  "capture_terminal_pose": true,
+  "columns": [
+    "global_step",
+    "callback_call",
+    "rollout",
+    "wall_time_s",
+    "env_id",
+    "episode",
+    "sample_index",
+    "episode_step",
+    "reward",
+    "episode_return",
+    "terminal",
+    "timeout",
+    "termination_reason",
+    "pin_x",
+    "pin_y",
+    "pin_z",
+    "pin_qw",
+    "pin_qx",
+    "pin_qy",
+    "pin_qz",
+    "pipe_x",
+    "pipe_y",
+    "pipe_z",
+    "pipe_qw",
+    "pipe_qx",
+    "pipe_qy",
+    "pipe_qz",
+    "center_x",
+    "center_y",
+    "center_z",
+    "center_qw",
+    "center_qx",
+    "center_qy",
+    "center_qz",
+    "ee_frame_x",
+    "ee_frame_y",
+    "ee_frame_z",
+    "ee_frame_qw",
+    "ee_frame_qx",
+    "ee_frame_qy",
+    "ee_frame_qz"
+  ],
+  "reward_source": "Stable-Baselines3 callback reward after any active vector wrappers; episode_return is the cumulative sum of this same value"
+}

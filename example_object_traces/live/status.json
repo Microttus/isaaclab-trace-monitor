@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "running": false,
+  "updated_utc": "2026-07-13T08:48:18+00:00",
+  "wall_time_s": 3720.0,
+  "global_step": 21250000,
+  "total_timesteps": 40000000,
+  "progress_percent": 53.125,
+  "callback_call": 5188,
+  "rollout": 33,
+  "environments": {
+    "0": {
+      "episode": 13,
+      "episode_return": 0.55,
+      "current_samples": 110,
+      "adaptive_stride": 1,
+      "current_file": "live/env_000_current.csv",
+      "latest_file": "live/env_000_latest.csv",
+      "latest_complete_episode": 12,
+      "retained_episode_file": "episodes/env_000/episode_000012.csv"
+    }
+  }
+}
