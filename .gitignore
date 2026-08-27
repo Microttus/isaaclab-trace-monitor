@@ -5,6 +5,7 @@
 .venv-test/
 .idea/
 .DS_Store
+PUBLICATION_CHECKLIST.md
 
 .pytest_cache/
 .ruff_cache/
