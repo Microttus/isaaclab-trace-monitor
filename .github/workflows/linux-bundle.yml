@@ -43,7 +43,7 @@ jobs:
             ./example_object_traces --smoke-test
 
       - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: isaaclab-trace-monitor-linux
           path: |
