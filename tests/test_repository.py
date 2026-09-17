@@ -16,7 +16,7 @@ def test_public_disclosures_are_present() -> None:
 
 
 def test_source_version_matches_release() -> None:
-    assert __version__ == "1.3.0"
+    assert __version__ == "1.4.0"
 
 
 def test_linux_support_files_are_present() -> None:

@@ -22,6 +22,47 @@ class ObjectDefinition:
 
 
 @dataclass(frozen=True)
+class ContactSensorDefinition:
+    """One traced contact sensor and its CSV column prefix."""
+
+    name: str
+    prefix: str
+    sensor: str = ""
+    frame: str = ""
+    aggregation: str = ""
+
+    @property
+    def force_column(self) -> str:
+        return f"{self.prefix}_force_N"
+
+    @property
+    def component_columns(self) -> tuple[str, str, str]:
+        return (
+            f"{self.prefix}_fx_N",
+            f"{self.prefix}_fy_N",
+            f"{self.prefix}_fz_N",
+        )
+
+
+@dataclass(frozen=True)
+class JointDefinition:
+    """One traced articulation joint and its CSV column prefix."""
+
+    name: str
+    prefix: str
+    entity: str = ""
+    index: int | None = None
+
+    @property
+    def position_column(self) -> str:
+        return f"{self.prefix}_pos_rad"
+
+    @property
+    def velocity_column(self) -> str:
+        return f"{self.prefix}_vel_rad_s"
+
+
+@dataclass(frozen=True)
 class TraceFile:
     """A selectable trace CSV beneath an object_traces directory."""
 
@@ -63,6 +104,8 @@ class TraceData:
     table: CsvTable
     metadata: dict[str, Any]
     objects: tuple[ObjectDefinition, ...]
+    contacts: tuple[ContactSensorDefinition, ...] = ()
+    joints: tuple[JointDefinition, ...] = ()
 
     @property
     def path(self) -> Path:
@@ -118,6 +161,31 @@ class TraceData:
         if not all(name in self.table.headers for name in names):
             return None
         return np.column_stack(tuple(self.values(name) for name in names))
+
+    @property
+    def has_signals(self) -> bool:
+        """True when the trace carries contact-force or joint-state columns."""
+        return bool(self.contacts or self.joints)
+
+    def contact_components(self, sensor: ContactSensorDefinition) -> np.ndarray:
+        """Returns an N-by-3 contact-force vector array in newtons."""
+        return np.column_stack(
+            tuple(self.values(name) for name in sensor.component_columns)
+        )
+
+    def contact_magnitude(self, sensor: ContactSensorDefinition) -> np.ndarray:
+        """Returns the logged contact-force magnitude, or the vector norm."""
+        if sensor.force_column in self.table.headers:
+            return self.values(sensor.force_column)
+        return np.linalg.norm(self.contact_components(sensor), axis=1)
+
+    def joint_position(self, joint: JointDefinition) -> np.ndarray:
+        """Returns the actual joint position column in radians."""
+        return self.values(joint.position_column)
+
+    def joint_velocity(self, joint: JointDefinition) -> np.ndarray:
+        """Returns the actual joint velocity column in radians per second."""
+        return self.values(joint.velocity_column)
 
 
 _EPISODE_RE = re.compile(r"episode_(\d+)\.csv$")
@@ -221,7 +289,13 @@ def load_trace(path: Path, root: Path | None = None) -> TraceData:
     objects = object_definitions(metadata, table.headers)
     if not objects:
         raise ValueError(f"No <object>_x/<object>_y/<object>_z columns found in {path}")
-    return TraceData(table=table, metadata=metadata, objects=objects)
+    return TraceData(
+        table=table,
+        metadata=metadata,
+        objects=objects,
+        contacts=contact_definitions(metadata, table.headers),
+        joints=joint_definitions(metadata, table.headers),
+    )
 
 
 def object_definitions(
@@ -260,6 +334,106 @@ def object_definitions(
     return tuple(result)
 
 
+def contact_definitions(
+    metadata: Mapping[str, Any], headers: Sequence[str]
+) -> tuple[ContactSensorDefinition, ...]:
+    """Returns contact-sensor definitions from metadata with a column fallback."""
+    header_set = set(headers)
+    result: list[ContactSensorDefinition] = []
+    used: set[str] = set()
+
+    metadata_sensors = metadata.get("contact_sensors", [])
+    if isinstance(metadata_sensors, list):
+        for item in metadata_sensors:
+            if not isinstance(item, Mapping):
+                continue
+            sensor = str(item.get("name", "")).strip()
+            alias = str(item.get("alias", sensor)).strip()
+            prefix = str(item.get("prefix", "")).strip()
+            if not alias or not prefix or prefix in used:
+                continue
+            if not _has_contact_columns(prefix, header_set):
+                continue
+            result.append(
+                ContactSensorDefinition(
+                    name=alias,
+                    prefix=prefix,
+                    sensor=sensor,
+                    frame=str(item.get("vector_frame", "")).strip(),
+                    aggregation=str(item.get("aggregation", "")).strip(),
+                )
+            )
+            used.add(prefix)
+
+    for header in headers:
+        if not header.endswith("_force_N"):
+            continue
+        prefix = header[: -len("_force_N")]
+        if prefix in used or not _has_contact_columns(prefix, header_set):
+            continue
+        name = prefix[len("contact_") :] if prefix.startswith("contact_") else prefix
+        result.append(ContactSensorDefinition(name=name or prefix, prefix=prefix))
+        used.add(prefix)
+
+    return tuple(result)
+
+
+def joint_definitions(
+    metadata: Mapping[str, Any], headers: Sequence[str]
+) -> tuple[JointDefinition, ...]:
+    """Returns joint-state definitions from metadata with a column fallback."""
+    header_set = set(headers)
+    result: list[JointDefinition] = []
+    used: set[str] = set()
+
+    joint_state = metadata.get("joint_state")
+    if isinstance(joint_state, Mapping):
+        entity = str(joint_state.get("entity", "")).strip()
+        column_prefix = str(joint_state.get("prefix", "")).strip()
+        labels = joint_state.get("labels", [])
+        indices = joint_state.get("indices", [])
+        if isinstance(labels, list) and column_prefix:
+            for position, label in enumerate(labels):
+                label = str(label).strip()
+                prefix = f"{column_prefix}_{label}"
+                if not label or prefix in used:
+                    continue
+                if not _has_joint_columns(prefix, header_set):
+                    continue
+                index: int | None = None
+                if isinstance(indices, list) and position < len(indices):
+                    try:
+                        index = int(indices[position])
+                    except (TypeError, ValueError):
+                        index = None
+                result.append(
+                    JointDefinition(
+                        name=label, prefix=prefix, entity=entity, index=index
+                    )
+                )
+                used.add(prefix)
+
+    for header in headers:
+        if not header.endswith("_pos_rad"):
+            continue
+        prefix = header[: -len("_pos_rad")]
+        if prefix in used or not _has_joint_columns(prefix, header_set):
+            continue
+        result.append(JointDefinition(name=prefix, prefix=prefix))
+        used.add(prefix)
+
+    return tuple(result)
+
+
+def _has_contact_columns(prefix: str, header_set: set[str]) -> bool:
+    components = {f"{prefix}_fx_N", f"{prefix}_fy_N", f"{prefix}_fz_N"}
+    return f"{prefix}_force_N" in header_set or components.issubset(header_set)
+
+
+def _has_joint_columns(prefix: str, header_set: set[str]) -> bool:
+    return {f"{prefix}_pos_rad", f"{prefix}_vel_rad_s"}.issubset(header_set)
+
+
 def discover_env_ids(
     root: Path, metadata: Mapping[str, Any], status: Mapping[str, Any]
 ) -> tuple[int, ...]:
@@ -286,6 +460,7 @@ def discover_env_ids(
         "live/env_*_current.csv",
         "live/env_*_latest.csv",
         "episodes/env_*",
+        "archive/env_*",
     ):
         for path in root.glob(pattern):
             match = _ENV_RE.search(path.name)
@@ -337,16 +512,29 @@ def discover_trace_files(
             )
         )
 
-    episode_dir = root / "episodes" / f"env_{env_id:03d}"
-    episode_paths = sorted(
-        episode_dir.glob("episode_*.csv"),
-        key=lambda path: _episode_from_path(path) or -1,
-        reverse=True,
-    )
-    for path in episode_paths:
-        episode = _episode_from_path(path)
-        label = f"Episode {episode}" if episode is not None else path.name
-        result.append(TraceFile(label, path, "episode", env_id, episode))
+    numbered: dict[int, TraceFile] = {}
+    unnumbered: list[TraceFile] = []
+    for directory, kind in (
+        (root / "episodes" / f"env_{env_id:03d}", "episode"),
+        (root / "archive" / f"env_{env_id:03d}", "archive"),
+    ):
+        for path in sorted(directory.glob("episode_*.csv")):
+            episode = _episode_from_path(path)
+            if episode is None:
+                unnumbered.append(TraceFile(path.name, path, kind, env_id, None))
+                continue
+            if episode in numbered:
+                # A retained episode and its archived copy hold the same rows.
+                continue
+            label = (
+                f"Episode {episode}"
+                if kind == "episode"
+                else f"Episode {episode} (archived)"
+            )
+            numbered[episode] = TraceFile(label, path, kind, env_id, episode)
+
+    result.extend(numbered[episode] for episode in sorted(numbered, reverse=True))
+    result.extend(unnumbered)
 
     return tuple(result)
 
@@ -389,6 +577,7 @@ def _looks_like_trace_root(path: Path) -> bool:
         (path / "metadata.json").is_file()
         or (path / "live").is_dir()
         or (path / "episodes").is_dir()
+        or (path / "archive").is_dir()
         or (path / "episode_summary.csv").is_file()
     )
 

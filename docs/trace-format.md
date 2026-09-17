@@ -13,15 +13,26 @@ object_traces/
 │   ├── status.json
 │   ├── env_000_current.csv
 │   └── env_000_latest.csv
-└── episodes/
+├── episodes/
+│   └── env_000/
+│       ├── episode_000012.csv
+│       └── episode_000013.csv
+└── archive/
     └── env_000/
-        ├── episode_000012.csv
-        └── episode_000013.csv
+        ├── episode_000000.csv
+        └── episode_000006.csv
 ```
 
 `env_000_current.csv` is atomically replaced while the episode is running.
 `env_000_latest.csv` contains the newest completed trajectory. The `episodes/`
 directory is optional and retention-bounded.
+
+`archive/` is optional and holds every Nth completed episode, controlled by the
+logger's `archive_every_episodes`. Episode retention never prunes it, so it
+keeps a sparse record of the whole run. The monitor lists archived episodes in
+the **Trace** selector as `Episode <n> (archived)`, newest first, merged with
+the retained episodes. When an episode exists in both directories the retained
+copy is listed, because both hold the same rows.
 
 ## Metadata
 
@@ -37,6 +48,9 @@ directory is optional and retention-bounded.
 | `quaternion_order` | `wxyz` when orientation is logged |
 | `simulation_step_dt_s` | Simulated seconds per environment step |
 | `include_actions` | Whether action columns are present |
+| `contact_sensors` | List of contact-sensor aliases, scene names, and CSV prefixes |
+| `joint_state` | Traced articulation entity, joint indices, labels, and CSV prefix |
+| `archive_every_episodes` | Archive interval in completed episodes; `0` disables |
 | `columns` | Ordered trace-column list |
 
 Positions are normally expressed in world-axis directions with the selected
@@ -77,6 +91,30 @@ Each object contributes:
 
 Quaternion order is `(w, x, y, z)`. Orientation columns are optional. If action
 logging is enabled, columns are named `action_0`, `action_1`, and so on.
+
+Each traced contact sensor contributes its strongest filtered contact vector
+and that vector's magnitude, in newtons:
+
+```text
+contact_<alias>_fx_N
+contact_<alias>_fy_N
+contact_<alias>_fz_N
+contact_<alias>_force_N
+```
+
+Each traced joint contributes its actual position and velocity, independent of
+any logged action vector:
+
+```text
+<prefix>_<label>_pos_rad
+<prefix>_<label>_vel_rad_s
+```
+
+The monitor reads both groups from `metadata.json` and falls back to the column
+names when the metadata is missing, so a trace written by an older logger and a
+hand-built CSV both work. It plots them on the **Contacts & joints** tab,
+where a sample cursor follows trajectory playback. The tab is disabled for
+traces that contain neither group.
 
 The minimum monitor-compatible object representation is a complete XYZ triplet:
 

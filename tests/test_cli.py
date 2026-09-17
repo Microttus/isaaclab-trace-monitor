@@ -40,7 +40,7 @@ def test_version_does_not_import_gui_dependencies() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert "1.3.0" in result.stdout
+    assert "1.4.0" in result.stdout
 
 
 def test_cli_preserves_remote_source(monkeypatch) -> None:

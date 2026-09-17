@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 4,
   "created_utc": "2026-07-13T08:48:18+00:00",
   "objects": [
     {
@@ -23,6 +23,46 @@
       "item_index": 0
     }
   ],
+  "contact_sensors": [
+    {
+      "alias": "left_finger",
+      "name": "left_finger_contact",
+      "prefix": "contact_left_finger",
+      "vector_frame": "world",
+      "force_units": "N",
+      "aggregation": "strongest filtered contact by vector magnitude"
+    },
+    {
+      "alias": "right_finger",
+      "name": "right_finger_contact",
+      "prefix": "contact_right_finger",
+      "vector_frame": "world",
+      "force_units": "N",
+      "aggregation": "strongest filtered contact by vector magnitude"
+    },
+    {
+      "alias": "pin_tip",
+      "name": "pin_tip_contact",
+      "prefix": "contact_pin_tip",
+      "vector_frame": "world",
+      "force_units": "N",
+      "aggregation": "strongest filtered contact by vector magnitude"
+    }
+  ],
+  "joint_state": {
+    "entity": "robot",
+    "indices": [
+      7,
+      8
+    ],
+    "labels": [
+      "left",
+      "right"
+    ],
+    "prefix": "gripper",
+    "position_units": "rad",
+    "velocity_units": "rad/s"
+  },
   "env_ids": [
     0
   ],
@@ -79,7 +119,24 @@
     "ee_frame_qw",
     "ee_frame_qx",
     "ee_frame_qy",
-    "ee_frame_qz"
+    "ee_frame_qz",
+    "contact_left_finger_fx_N",
+    "contact_left_finger_fy_N",
+    "contact_left_finger_fz_N",
+    "contact_left_finger_force_N",
+    "contact_right_finger_fx_N",
+    "contact_right_finger_fy_N",
+    "contact_right_finger_fz_N",
+    "contact_right_finger_force_N",
+    "contact_pin_tip_fx_N",
+    "contact_pin_tip_fy_N",
+    "contact_pin_tip_fz_N",
+    "contact_pin_tip_force_N",
+    "gripper_left_pos_rad",
+    "gripper_left_vel_rad_s",
+    "gripper_right_pos_rad",
+    "gripper_right_vel_rad_s"
   ],
-  "reward_source": "Stable-Baselines3 callback reward after any active vector wrappers; episode_return is the cumulative sum of this same value"
+  "reward_source": "Stable-Baselines3 callback reward after any active vector wrappers; episode_return is the cumulative sum of this same value",
+  "archive_every_episodes": 6
 }

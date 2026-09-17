@@ -6,9 +6,11 @@ import numpy as np
 import pytest
 
 from isaaclab_trace_monitor.data import (
+    contact_definitions,
     discover_env_ids,
     discover_trace_files,
     find_trace_root,
+    joint_definitions,
     load_json,
     load_summary,
     load_trace,
@@ -39,11 +41,87 @@ def test_discovery_and_summary() -> None:
     status = load_json(ROOT / "live" / "status.json")
     assert discover_env_ids(ROOT, metadata, status) == (0,)
     files = discover_trace_files(ROOT, 0)
-    assert [item.kind for item in files] == ["current", "latest", "episode"]
-    assert files[-1].episode == 12
+    assert [item.kind for item in files] == [
+        "current",
+        "latest",
+        "episode",
+        "archive",
+        "archive",
+    ]
+    assert [item.episode for item in files[2:]] == [12, 6, 0]
     summary = load_summary(ROOT)
     assert summary is not None
     assert summary.row_count == 13
+
+
+def test_archived_episodes_are_selectable() -> None:
+    files = discover_trace_files(ROOT, 0)
+    archived = [item for item in files if item.kind == "archive"]
+    assert [item.label for item in archived] == [
+        "Episode 6 (archived)",
+        "Episode 0 (archived)",
+    ]
+    assert all(item.path.parent.parent.name == "archive" for item in archived)
+
+
+def test_retained_episode_wins_over_its_archived_copy() -> None:
+    files = discover_trace_files(ROOT, 0)
+    episode_12 = [
+        item
+        for item in files
+        if item.episode == 12 and item.kind in ("episode", "archive")
+    ]
+    assert len(episode_12) == 1
+    assert episode_12[0].kind == "episode"
+    assert episode_12[0].path.parent.parent.name == "episodes"
+
+
+def test_contact_and_joint_definitions_from_metadata() -> None:
+    trace = load_trace(ROOT / "live" / "env_000_latest.csv", ROOT)
+    assert trace.has_signals
+    assert [sensor.name for sensor in trace.contacts] == [
+        "left_finger",
+        "right_finger",
+        "pin_tip",
+    ]
+    assert trace.contacts[0].prefix == "contact_left_finger"
+    assert trace.contacts[0].sensor == "left_finger_contact"
+    assert [joint.name for joint in trace.joints] == ["left", "right"]
+    assert [joint.index for joint in trace.joints] == [7, 8]
+    assert trace.joints[0].prefix == "gripper_left"
+
+    magnitude = trace.contact_magnitude(trace.contacts[0])
+    components = trace.contact_components(trace.contacts[0])
+    assert magnitude.shape == (trace.row_count,)
+    assert components.shape == (trace.row_count, 3)
+    assert np.allclose(np.linalg.norm(components, axis=1), magnitude)
+    assert magnitude[0] == 0.0
+    assert magnitude[-1] > 1.0
+    assert trace.joint_position(trace.joints[0]).shape == (trace.row_count,)
+    assert trace.joint_velocity(trace.joints[0]).shape == (trace.row_count,)
+
+
+def test_definitions_fall_back_to_csv_columns() -> None:
+    headers = (
+        "contact_tool_fx_N",
+        "contact_tool_fy_N",
+        "contact_tool_fz_N",
+        "contact_tool_force_N",
+        "gripper_left_pos_rad",
+        "gripper_left_vel_rad_s",
+        "gripper_right_pos_rad",
+    )
+    contacts = contact_definitions({}, headers)
+    assert [sensor.name for sensor in contacts] == ["tool"]
+    assert contacts[0].prefix == "contact_tool"
+    joints = joint_definitions({}, headers)
+    assert [joint.name for joint in joints] == ["gripper_left"]
+
+
+def test_trace_without_signals_reports_none() -> None:
+    headers = ("pin_x", "pin_y", "pin_z")
+    assert contact_definitions({}, headers) == ()
+    assert joint_definitions({}, headers) == ()
 
 
 def test_remote_source_and_rsync_arguments(tmp_path: Path) -> None:
@@ -54,8 +132,23 @@ def test_remote_source_and_rsync_arguments(tmp_path: Path) -> None:
     arguments = rsync_arguments(source, tmp_path / cache.name, include_episodes=False)
     assert "--exclude" in arguments
     assert "episodes/" in arguments
+    assert "archive/" in arguments
     assert arguments[-3] == "--"
     assert arguments[-2].endswith("/object_traces/")
+
+
+def test_rsync_archive_inclusion(tmp_path: Path) -> None:
+    source = SourceSpec.parse("coder.example:/home/coder/run/object_traces")
+    arguments = rsync_arguments(
+        source, tmp_path, include_episodes=True, include_archive=True
+    )
+    assert "episodes/" not in arguments
+    assert "archive/" not in arguments
+    arguments = rsync_arguments(
+        source, tmp_path, include_episodes=True, include_archive=False
+    )
+    assert "episodes/" not in arguments
+    assert "archive/" in arguments
 
 
 def test_ssh_url_source() -> None:

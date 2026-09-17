@@ -115,7 +115,10 @@ def cache_directory(source: SourceSpec) -> Path:
 
 
 def rsync_arguments(
-    source: SourceSpec, cache: Path, include_episodes: bool
+    source: SourceSpec,
+    cache: Path,
+    include_episodes: bool,
+    include_archive: bool = False,
 ) -> list[str]:
     """Build bounded live-sync arguments for rsync."""
     arguments = [
@@ -125,6 +128,8 @@ def rsync_arguments(
     ]
     if not include_episodes:
         arguments.extend(("--exclude", "episodes/"))
+    if not include_archive:
+        arguments.extend(("--exclude", "archive/"))
     arguments.append("--")
     arguments.extend((source.rsync_source(), f"{cache.resolve()}/"))
     return arguments

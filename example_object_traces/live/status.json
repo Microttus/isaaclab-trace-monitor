@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 4,
   "running": false,
   "updated_utc": "2026-07-13T08:48:18+00:00",
   "wall_time_s": 3720.0,
@@ -17,7 +17,8 @@
       "current_file": "live/env_000_current.csv",
       "latest_file": "live/env_000_latest.csv",
       "latest_complete_episode": 12,
-      "retained_episode_file": "episodes/env_000/episode_000012.csv"
+      "retained_episode_file": "episodes/env_000/episode_000012.csv",
+      "archived_episode_file": "archive/env_000/episode_000012.csv"
     }
   }
 }

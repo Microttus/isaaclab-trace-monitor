@@ -380,6 +380,173 @@ class TrajectoryView(QWidget):
         return f"{trace.path.name} | env {env_text} | episode {episode_text}"
 
 
+class SignalsView(QWidget):
+    """Contact-force and joint-state plots for the loaded trace."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.figure = Figure(constrained_layout=True)
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self)
+
+        self.sensor_combo = QComboBox()
+        self.sensor_combo.setToolTip(
+            "Contact sensor shown with separate force components"
+        )
+        self.sensor_combo.currentIndexChanged.connect(self._sensor_changed)
+        self.components_checkbox = QCheckBox("Force components")
+        self.components_checkbox.setChecked(True)
+        self.components_checkbox.setToolTip(
+            "Show the world-axis force components of the selected sensor"
+        )
+        self.components_checkbox.toggled.connect(lambda _checked: self.rebuild())
+
+        controls = QHBoxLayout()
+        controls.addWidget(QLabel("Contact sensor"))
+        controls.addWidget(self.sensor_combo)
+        controls.addWidget(self.components_checkbox)
+        controls.addStretch(1)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.canvas, 1)
+        layout.addLayout(controls)
+
+        self.trace: TraceData | None = None
+        self.cursors: list[Any] = []
+        self.frame_index = 0
+        self._show_message("Open an object_traces source")
+
+    def load_trace(self, trace: TraceData) -> None:
+        """Loads a trace and rebuilds the contact and joint plots."""
+        previous = self.sensor_combo.currentData()
+        self.trace = trace
+        prefixes = [sensor.prefix for sensor in trace.contacts]
+        with QSignalBlocker(self.sensor_combo):
+            self.sensor_combo.clear()
+            for sensor in trace.contacts:
+                self.sensor_combo.addItem(sensor.name, sensor.prefix)
+            if previous in prefixes:
+                self.sensor_combo.setCurrentIndex(prefixes.index(previous))
+        self.sensor_combo.setEnabled(bool(trace.contacts))
+        self.components_checkbox.setEnabled(bool(trace.contacts))
+        self.frame_index = 0
+        self.rebuild()
+
+    def rebuild(self) -> None:
+        """Redraws every static artist for the current trace."""
+        self.cursors.clear()
+        self.figure.clear()
+        trace = self.trace
+        if trace is None:
+            self._show_message("Open an object_traces source")
+            return
+        if not trace.has_signals:
+            self._show_message(
+                "This trace has no contact-force or joint-state columns.\n"
+                "Enable contact_sensors or joint_state_entity in the logger."
+            )
+            return
+
+        panels: list[str] = []
+        if trace.contacts:
+            panels.append("magnitude")
+            if (
+                self.components_checkbox.isChecked()
+                and self._selected_sensor() is not None
+            ):
+                panels.append("components")
+        if trace.joints:
+            panels.extend(("position", "velocity"))
+
+        steps = trace.step_values()
+        axes_list = self.figure.subplots(len(panels), 1, sharex=True, squeeze=False)
+        for panel, axes in zip(panels, axes_list[:, 0]):
+            self._draw_panel(panel, axes, trace, steps)
+            axes.grid(True)
+            axes.legend(loc="best", fontsize="small")
+            self.cursors.append(
+                axes.axvline(
+                    float(steps[0]) if steps.size else 0.0,
+                    linestyle="--",
+                    linewidth=0.9,
+                    color="0.4",
+                )
+            )
+        axes_list[-1, 0].set_xlabel("Episode step")
+        self.set_frame(self.frame_index)
+
+    def set_frame(self, index: int) -> None:
+        """Moves the sample cursor of every panel."""
+        if self.trace is None or self.trace.row_count == 0:
+            return
+        self.frame_index = max(0, min(int(index), self.trace.row_count - 1))
+        steps = self.trace.step_values()
+        if steps.size and self.cursors:
+            value = float(steps[self.frame_index])
+            for cursor in self.cursors:
+                cursor.set_xdata([value, value])
+        self.canvas.draw_idle()
+
+    def _draw_panel(
+        self, panel: str, axes: Any, trace: TraceData, steps: np.ndarray
+    ) -> None:
+        if panel == "magnitude":
+            for sensor in trace.contacts:
+                axes.plot(
+                    steps,
+                    trace.contact_magnitude(sensor),
+                    linewidth=1.1,
+                    label=sensor.name,
+                )
+            axes.set_title("Contact-force magnitude")
+            axes.set_ylabel("Force [N]")
+        elif panel == "components":
+            sensor = self._selected_sensor()
+            assert sensor is not None
+            components = trace.contact_components(sensor)
+            for axis_index, axis_name in enumerate(("fx", "fy", "fz")):
+                axes.plot(
+                    steps, components[:, axis_index], linewidth=1.0, label=axis_name
+                )
+            axes.set_title(f"{sensor.name} force components")
+            axes.set_ylabel("Force [N]")
+        elif panel == "position":
+            for joint in trace.joints:
+                axes.plot(
+                    steps, trace.joint_position(joint), linewidth=1.1, label=joint.name
+                )
+            axes.set_title("Actual joint position")
+            axes.set_ylabel("Position [rad]")
+        else:
+            for joint in trace.joints:
+                axes.plot(
+                    steps, trace.joint_velocity(joint), linewidth=1.1, label=joint.name
+                )
+            axes.set_title("Actual joint velocity")
+            axes.set_ylabel("Velocity [rad/s]")
+
+    def _selected_sensor(self) -> Any:
+        if self.trace is None:
+            return None
+        prefix = self.sensor_combo.currentData()
+        return next(
+            (sensor for sensor in self.trace.contacts if sensor.prefix == prefix),
+            self.trace.contacts[0] if self.trace.contacts else None,
+        )
+
+    def _sensor_changed(self, _index: int = -1) -> None:
+        if self.components_checkbox.isChecked():
+            self.rebuild()
+
+    def _show_message(self, message: str) -> None:
+        axes = self.figure.add_subplot(1, 1, 1)
+        axes.axis("off")
+        axes.text(0.5, 0.5, message, ha="center", va="center", wrap=True)
+        self.canvas.draw_idle()
+
+
 class TrainingView(QWidget):
     """Episode-return and episode-length history view."""
 
@@ -556,6 +723,11 @@ class MonitorWindow(QMainWindow):
         self.follow_checkbox.toggled.connect(self._follow_toggled)
         self.sync_episodes_checkbox = QCheckBox("Sync retained episodes")
         self.sync_episodes_checkbox.toggled.connect(self._sync_episodes_changed)
+        self.sync_archive_checkbox = QCheckBox("Sync archived episodes")
+        self.sync_archive_checkbox.setToolTip(
+            "Fetch the sparse archive/ history the logger never prunes"
+        )
+        self.sync_archive_checkbox.toggled.connect(self._sync_archive_changed)
         self.refresh_spin = QDoubleSpinBox()
         self.refresh_spin.setRange(0.5, 60.0)
         self.refresh_spin.setDecimals(1)
@@ -567,6 +739,7 @@ class MonitorWindow(QMainWindow):
         live_form.addRow(self.live_checkbox)
         live_form.addRow(self.follow_checkbox)
         live_form.addRow(self.sync_episodes_checkbox)
+        live_form.addRow(self.sync_archive_checkbox)
         live_form.addRow("Period", self.refresh_spin)
         live_form.addRow(self.refresh_button)
         left_layout.addWidget(live_group)
@@ -592,9 +765,15 @@ class MonitorWindow(QMainWindow):
         self.trajectory_view = TrajectoryView()
         trajectory_layout.addWidget(self.trajectory_view, 1)
         trajectory_layout.addLayout(self._create_playback_controls())
+        self.signals_view = SignalsView()
         self.training_view = TrainingView()
         self.tabs.addTab(trajectory_page, "Trajectory")
+        self.signals_tab_index = self.tabs.addTab(
+            self.signals_view, "Contacts && joints"
+        )
         self.tabs.addTab(self.training_view, "Training")
+        self.tabs.setTabEnabled(self.signals_tab_index, False)
+        self.tabs.currentChanged.connect(self._tab_changed)
 
         splitter.addWidget(self.left_panel)
         splitter.addWidget(self.tabs)
@@ -795,7 +974,7 @@ class MonitorWindow(QMainWindow):
             self.remote_cache.mkdir(parents=True, exist_ok=True)
             self.mode_label.setText("Remote live (SSH/rsync)")
             self.sync_episodes_checkbox.setEnabled(True)
-            self.live_checkbox.setChecked(True)
+            self.sync_archive_checkbox.setEnabled(True)
             self.statusBar().showMessage(f"Connecting to {source.remote_host}…")
             self._try_open_cached_root()
             self._start_remote_sync(force=True)
@@ -803,6 +982,7 @@ class MonitorWindow(QMainWindow):
 
         self.remote_cache = None
         self.sync_episodes_checkbox.setEnabled(False)
+        self.sync_archive_checkbox.setEnabled(False)
         try:
             assert source.local_path is not None
             root, selected_csv = find_trace_root(source.local_path)
@@ -814,8 +994,6 @@ class MonitorWindow(QMainWindow):
         self.explicit_csv = selected_csv
         self.mode_label.setText("Local / offline")
         self._reload_from_disk(force=True, prefer_current=False)
-        running = bool(self.status.get("running", False))
-        self.live_checkbox.setChecked(running)
 
     def refresh_source(self, force: bool = False) -> None:
         """Refreshes local files or synchronizes a remote source."""
@@ -862,6 +1040,7 @@ class MonitorWindow(QMainWindow):
             self.source_spec,
             self.remote_cache,
             include_episodes=self.sync_episodes_checkbox.isChecked(),
+            include_archive=self.sync_archive_checkbox.isChecked(),
         )
         self.statusBar().showMessage(f"Synchronizing {self.source_spec.remote_host}…")
         self.refresh_button.setEnabled(False)
@@ -1023,6 +1202,10 @@ class MonitorWindow(QMainWindow):
         self._update_object_choices(trace, str(selected_prefix or ""))
         selected_prefix = str(self.object_combo.currentData() or "")
         self.trajectory_view.load_trace(trace, selected_prefix)
+        self.signals_view.load_trace(trace)
+        self.tabs.setTabEnabled(self.signals_tab_index, trace.has_signals)
+        if not trace.has_signals and self.tabs.currentIndex() == self.signals_tab_index:
+            self.tabs.setCurrentIndex(0)
         self.sample_slider.setRange(0, max(trace.row_count - 1, 0))
 
         if trace.row_count == 0:
@@ -1123,6 +1306,15 @@ class MonitorWindow(QMainWindow):
                 self._update_trace_choices(prefer_current=True)
         self.refresh_source(force=True)
 
+    def _sync_archive_changed(self, enabled: bool = False) -> None:
+        if self.source_spec is None or not self.source_spec.remote:
+            return
+        if not enabled and self.remote_cache is not None:
+            shutil.rmtree(self.remote_cache / "archive", ignore_errors=True)
+            if self.source_root is not None:
+                self._update_trace_choices(prefer_current=True)
+        self.refresh_source(force=True)
+
     def _follow_toggled(self, enabled: bool) -> None:
         if enabled:
             self._jump_to_last()
@@ -1218,6 +1410,12 @@ class MonitorWindow(QMainWindow):
             trail_samples=self.trail_spin.value(),
             show_orientation=self.orientation_checkbox.isChecked(),
         )
+        if self.tabs.currentIndex() == self.signals_tab_index:
+            self.signals_view.set_frame(self.frame_index)
+
+    def _tab_changed(self, index: int) -> None:
+        if index == self.signals_tab_index and self.trace is not None:
+            self.signals_view.set_frame(self.frame_index)
 
     def _update_frame_label(self) -> None:
         if self.trace is None or self.trace.row_count == 0:
@@ -1289,6 +1487,28 @@ class MonitorWindow(QMainWindow):
             lines.append(
                 f"Quaternion: {self.metadata.get('quaternion_order', '-') or 'not logged'}"
             )
+            if self.trace.contacts:
+                lines.append("")
+                lines.append("Contact sensors:")
+                for sensor in self.trace.contacts:
+                    scene_name = f" <- {sensor.sensor}" if sensor.sensor else ""
+                    lines.append(f"  {sensor.name}{scene_name} [N]")
+                    if sensor.aggregation:
+                        lines.append(f"    {sensor.aggregation}")
+            if self.trace.joints:
+                lines.append("")
+                entity = self.trace.joints[0].entity
+                lines.append(f"Joint state: {entity or '-'}")
+                for joint in self.trace.joints:
+                    index = "-" if joint.index is None else str(joint.index)
+                    lines.append(f"  {joint.name} (joint index {index})")
+            archive_every = self.metadata.get("archive_every_episodes")
+            if isinstance(archive_every, (int, float)) and archive_every > 0:
+                lines.append("")
+                lines.append(f"Archive:  every {int(archive_every)} episodes")
+            archived = sum(1 for item in self.trace_files if item.kind == "archive")
+            if archived:
+                lines.append(f"Archived: {archived} selectable episodes")
         self.status_area.setPlainText(
             "\n".join(lines) if lines else "No source loaded."
         )
