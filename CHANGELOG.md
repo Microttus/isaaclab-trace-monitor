@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.0 - 2026-09-17
+
+- Added a **Contacts & joints** tab plotting contact-force magnitude, the
+  world-axis force components of a selected sensor, and actual joint positions
+  and velocities, with a sample cursor shared with trajectory playback.
+- Added selection and playback of archived episodes from `archive/`, merged
+  into the trace list with the retained episodes and newest first.
+- Added a **Sync archived episodes** option and excluded `archive/` from the
+  default restrictive remote transfer.
+- Added contact-sensor and joint-state reporting to the status panel, including
+  the scene sensor names, joint indices, and archive interval.
+- Added `contact_sensors` and `joint_state` metadata parsing with a CSV-column
+  fallback, so format version 4 and version 2 traces both open unchanged.
+- Extended the bundled example trace with contact, joint, and archive data.
+- Changed **Refresh automatically** to stay off until it is switched on, rather
+  than following the remote mode or the logger's reported running state.
+
 ## 1.3.0 - 2026-08-20
 
 - Added first-class Linux source and portable-bundle support.

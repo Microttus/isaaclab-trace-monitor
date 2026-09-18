@@ -1,8 +1,11 @@
 # Live monitoring over Coder SSH
 
-The desktop application does not connect to Isaac Sim. It periodically copies
-the bounded logger output from the training host and redraws the newest local
-copy.
+The desktop application does not connect to Isaac Sim. It copies the bounded
+logger output from the training host and redraws the newest local copy.
+
+Opening a source synchronizes it once. Tick **Refresh automatically** to repeat
+that on the configured period; it stays off until you switch it on, for local
+and remote sources alike. **Refresh now** performs a single update at any time.
 
 ## Prerequisites
 
@@ -48,9 +51,15 @@ absolute and may not contain whitespace or shell metacharacters.
 
 ## Restrictive synchronization
 
-The default transfer excludes `episodes/` and retrieves only the files needed
-for the live display. Enable **Sync retained episodes** only when historical
-remote episode playback is required.
+The default transfer excludes `episodes/` and `archive/` and retrieves only the
+files needed for the live display. Enable **Sync retained episodes** only when
+historical remote episode playback is required, and **Sync archived episodes**
+to also fetch the sparse `archive/` history the logger never prunes. The
+archive is usually far smaller than the retained episodes, so it is the cheaper
+way to reach older episodes of a long run.
+
+Clearing either checkbox deletes the corresponding cached subtree and drops
+those entries from the **Trace** selector.
 
 The cache is disposable. Removing it does not alter server files. `rsync`
 receives `--delete`, so local cache files that no longer exist in the selected
@@ -81,7 +90,7 @@ ssh coder.<workspace> \
 Test the same bounded transfer manually on Linux:
 
 ```bash
-rsync -az --delete --exclude episodes/ -- \
+rsync -az --delete --exclude episodes/ --exclude archive/ -- \
   coder.<workspace>:/absolute/path/to/object_traces/ \
   "${XDG_CACHE_HOME:-$HOME/.cache}/isaaclab-trace-monitor/manual-test/"
 ```
@@ -89,7 +98,7 @@ rsync -az --delete --exclude episodes/ -- \
 On macOS, use:
 
 ```bash
-rsync -az --delete --exclude episodes/ -- \
+rsync -az --delete --exclude episodes/ --exclude archive/ -- \
   coder.<workspace>:/absolute/path/to/object_traces/ \
   "$HOME/Library/Caches/IsaacLabTraceMonitor/manual-test/"
 ```
