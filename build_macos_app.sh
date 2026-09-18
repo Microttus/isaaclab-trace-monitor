@@ -22,6 +22,25 @@ if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
   exit 1
 fi
 
+PYTHON_BIN="$(command -v "${PYTHON_BIN}")"
+PYTHON_BIN="$(cd "$(dirname "${PYTHON_BIN}")" && pwd -P)/$(basename "${PYTHON_BIN}")"
+
+# The build removes and recreates VENV_DIR, so the interpreter driving it must
+# live outside that directory. An activated build environment would otherwise
+# delete its own interpreter part-way through and fail at 'python -m venv'.
+if [[ -d "${VENV_DIR}" ]]; then
+  VENV_REAL="$(cd "${VENV_DIR}" && pwd -P)"
+  case "${PYTHON_BIN}" in
+    "${VENV_REAL}"/*)
+      echo "Python resolves inside the build environment this script recreates:" >&2
+      echo "  ${PYTHON_BIN}" >&2
+      echo "Run 'deactivate' first, or set PYTHON_BIN to a Python outside" >&2
+      echo "  ${VENV_REAL}" >&2
+      exit 1
+      ;;
+  esac
+fi
+
 if [[ ! -f "${ICON_ICNS}" ]]; then
   echo "Application icon is missing: ${ICON_ICNS}" >&2
   exit 1
